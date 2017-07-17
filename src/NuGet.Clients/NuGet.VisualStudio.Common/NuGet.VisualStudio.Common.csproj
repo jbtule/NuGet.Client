@@ -90,7 +90,6 @@
       <AutoGen>True</AutoGen>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
-    <Compile Update="SupportedProjectTypes.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Update="Resources.resx">

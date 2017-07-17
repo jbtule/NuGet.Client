@@ -83,19 +83,20 @@ namespace NuGet.PackageManagement.VisualStudio
             var solutionPath = SolutionWorkspaceService.SolutionFile;
             var indexService = workspace.GetIndexWorkspaceService();
             var indexedSolutionProjectTypes = (await indexService.GetFileDataValuesAsync<ProjectBaseTypesInSolution>(solutionPath,
-                ProjectBaseTypesInSolution.TypeGuid,refreshOption: true)).FirstOrDefault()?.Value;
+                ProjectBaseTypesInSolution.TypeGuid, refreshOption: true)).FirstOrDefault();
 
-            var relativeProjectPath = Common.PathUtility.GetRelativePath(solutionPath, projectFilePath);
-
-            if(!string.IsNullOrEmpty(relativeProjectPath)
-                && indexedSolutionProjectTypes.Types.TryGetValue(relativeProjectPath, out Guid projectTypeGuid))
+            if (indexedSolutionProjectTypes != null)
             {
-                return "{"+projectTypeGuid.ToString()+"}";
+                var relativeProjectPath = Common.PathUtility.GetRelativePath(solutionPath, projectFilePath);
+
+                if (!string.IsNullOrEmpty(relativeProjectPath)
+                    && indexedSolutionProjectTypes.Value.Types.TryGetValue(relativeProjectPath, out Guid projectTypeGuid))
+                {
+                    return projectTypeGuid.ToString("B");
+                }
             }
-            else
-            {
-                return string.Empty;
-            }            
+
+            return string.Empty;
         }
     }
 }

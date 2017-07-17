@@ -199,11 +199,12 @@ namespace NuGet.PackageManagement.VisualStudio
                 }
                 else
                 {
+                    // Get ProjectTypeGuids from msbuild property, if it doesn't exist, fall back to projectTypeGuid.
                     var projectTypeGuids = BuildProperties.GetPropertyValue(ProjectBuildProperties.ProjectTypeGuids);
 
                     if (!string.IsNullOrEmpty(projectTypeGuids))
                     {
-                        return projectTypeGuids.Split(';');
+                        return MSBuildStringUtility.Split(projectTypeGuids);
                     }
 
                     if (!string.IsNullOrEmpty(_projectTypeGuid))

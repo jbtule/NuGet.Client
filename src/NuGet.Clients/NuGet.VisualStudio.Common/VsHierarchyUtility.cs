@@ -19,7 +19,7 @@ namespace NuGet.VisualStudio
     {
         private const string VsWindowKindSolutionExplorer = "3AE79031-E1BC-11D0-8F78-00A0C9110057";
 
-        private static readonly HashSet<string> UnsupportedProjectCapabilities = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        private static readonly string[] UnsupportedProjectCapabilities = new string[]
             {
                 "SharedAssetsProject", // This is true for shared projects in universal apps
             };
@@ -65,7 +65,7 @@ namespace NuGet.VisualStudio
         {
             ThreadHelper.ThrowIfNotOnUIThread();
 
-            if (hierarchy.IsCapabilityMatch("AssemblyReferences + DeclaredSourceItems + UserSourceItems"))
+            if (IsProjectCapabilityCompliant(hierarchy))
             {
                 return true;
             }
@@ -73,17 +73,16 @@ namespace NuGet.VisualStudio
             return !string.IsNullOrEmpty(projectTypeGuid) && SupportedProjectTypes.IsSupported(projectTypeGuid) && !HasUnsupportedProjectCapability(hierarchy);
         }
 
+        public static bool IsProjectCapabilityCompliant(IVsHierarchy hierarchy)
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            return hierarchy.IsCapabilityMatch("AssemblyReferences + DeclaredSourceItems + UserSourceItems");
+        }
+
         public static bool HasUnsupportedProjectCapability(IVsHierarchy hierarchy)
         {
-            foreach (var unsupportedProjectCapability in UnsupportedProjectCapabilities)
-            {
-                if (hierarchy.IsCapabilityMatch(unsupportedProjectCapability))
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            return UnsupportedProjectCapabilities.Any(c => hierarchy.IsCapabilityMatch(c));
         }
 
         public static string[] GetProjectTypeGuids(IVsHierarchy hierarchy, string defaultType = "")

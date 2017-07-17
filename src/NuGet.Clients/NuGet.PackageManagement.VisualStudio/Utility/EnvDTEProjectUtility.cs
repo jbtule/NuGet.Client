@@ -412,7 +412,7 @@ namespace NuGet.PackageManagement.VisualStudio
 
             var hierarchy = VsHierarchyUtility.ToVsHierarchy(envDTEProject);
 
-            return hierarchy.IsCapabilityMatch("AssemblyReferences + DeclaredSourceItems + UserSourceItems");
+            return VsHierarchyUtility.IsProjectCapabilityCompliant(hierarchy);
         }
 
         public static NuGetProject GetNuGetProject(EnvDTE.Project project, ISolutionManager solutionManager)
