@@ -404,7 +404,7 @@ namespace NuGetConsole.Host.PowerShell.Implementation
                 // invoke init.ps1 files in the order of package dependency.
                 // if A -> B, we invoke B's init.ps1 before A's.
 
-                var projects = _solutionManager.GetNuGetProjects().ToList();
+                var projects = (await _solutionManager.GetNuGetProjectsAsync()).ToList();
                 var packageManager = new NuGetPackageManager(
                     _sourceRepositoryProvider,
                     _settings,
@@ -823,8 +823,17 @@ namespace NuGetConsole.Host.PowerShell.Implementation
                 {
                     await NuGetUIThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
-                    var allProjects = _solutionManager.GetNuGetProjects();
-                    _projectSafeNames = allProjects.Select(_solutionManager.GetNuGetProjectSafeName).ToArray();
+                    var allProjects = await _solutionManager.GetNuGetProjectsAsync();
+
+                    var allProjectSafeNames = new List<string>();
+
+                    foreach(var project in allProjects)
+                    {
+                        var safeName = await _solutionManager.GetNuGetProjectSafeNameAsync(project);
+                        allProjectSafeNames.Add(safeName);
+                    }
+
+                    _projectSafeNames = allProjectSafeNames.ToArray();
                     var displayNames = allProjects.Select(GetDisplayName).ToArray();
                     Array.Sort(displayNames, _projectSafeNames, StringComparer.CurrentCultureIgnoreCase);
                     return _projectSafeNames;
@@ -833,7 +842,11 @@ namespace NuGetConsole.Host.PowerShell.Implementation
 
         private string GetDisplayName(NuGetProject nuGetProject)
         {
-            var vsProjectAdapter = _solutionManager.GetVsProjectAdapter(nuGetProject);
+            var vsProjectAdapter = NuGetUIThreadHelper.JoinableTaskFactory.Run(
+                async () =>
+                {
+                    return await _solutionManager.GetVsProjectAdapterAsync(nuGetProject);
+                });
 
             var name = vsProjectAdapter.CustomUniqueName;
             if (IsWebSite(vsProjectAdapter))
