@@ -216,19 +216,18 @@ namespace NuGetConsole.Host.PowerShell.Implementation
             set { UpdateActiveSource(value); }
         }
 
-        public string DefaultProject
+        public async Task<string> GetDefaultProjectAsync()
         {
-            get
+            Assumes.Present(_solutionManager);
+
+            var project = await _solutionManager.GetDefaultNuGetProjectAsync();
+
+            if (project == null)
             {
-                Assumes.Present(_solutionManager);
-
-                if (_solutionManager.DefaultNuGetProject == null)
-                {
-                    return null;
-                }
-
-                return GetDisplayName(_solutionManager.DefaultNuGetProject);
+                return null;
             }
+
+            return GetDisplayName(project);
         }
 
         #endregion
@@ -309,14 +308,14 @@ namespace NuGetConsole.Host.PowerShell.Implementation
                                     {
                                         _scriptExecutor.Reset();
 
-                                    // Solution opened event is raised on the UI thread
-                                    // Go off the UI thread before calling likely expensive call of ExecuteInitScriptsAsync
-                                    // Also, it uses semaphores, do not call it from the UI thread
-                                    Task.Run(delegate
-                                            {
-                                                UpdateWorkingDirectory();
-                                                return ExecuteInitScriptsAsync();
-                                            });
+                                        // Solution opened event is raised on the UI thread
+                                        // Go off the UI thread before calling likely expensive call of ExecuteInitScriptsAsync
+                                        // Also, it uses semaphores, do not call it from the UI thread
+                                        Task.Run(delegate
+                                                {
+                                                    UpdateWorkingDirectory();
+                                                    return ExecuteInitScriptsAsync();
+                                                });
                                     };
                                 _solutionManager.SolutionClosed += (o, e) => UpdateWorkingDirectory();
                             }
@@ -525,7 +524,7 @@ namespace NuGetConsole.Host.PowerShell.Implementation
                     }
                 }
             }
-            
+
             // Order packages by dependency order
             var sortedPackages = ResolverUtility.TopologicalSort(packagesToSort);
             foreach (var package in sortedPackages)
@@ -537,7 +536,7 @@ namespace NuGetConsole.Host.PowerShell.Implementation
 
                     if (string.IsNullOrEmpty(installPath))
                     {
-                        continue;  
+                        continue;
                     }
 
                     await ExecuteInitPs1Async(installPath, package);
@@ -827,7 +826,7 @@ namespace NuGetConsole.Host.PowerShell.Implementation
 
                     var allProjectSafeNames = new List<string>();
 
-                    foreach(var project in allProjects)
+                    foreach (var project in allProjects)
                     {
                         var safeName = await _solutionManager.GetNuGetProjectSafeNameAsync(project);
                         allProjectSafeNames.Add(safeName);

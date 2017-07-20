@@ -426,14 +426,17 @@ namespace NuGet.PackageManagement.PowerShellCmdlets
                 ErrorHandler.ThrowSolutionNotOpenTerminatingError();
             }
 
-            if (!VsSolutionManager.IsSolutionAvailable)
+            NuGetUIThreadHelper.JoinableTaskFactory.Run(async () =>
             {
-                ErrorHandler.HandleException(
-                    new InvalidOperationException(VisualStudio.Strings.SolutionIsNotSaved),
-                    terminating: true,
-                    errorId: NuGetErrorId.UnsavedSolution,
-                    category: ErrorCategory.InvalidOperation);
-            }
+                if (!await VsSolutionManager.IsSolutionAvailableAsync())
+                {
+                    ErrorHandler.HandleException(
+                        new InvalidOperationException(VisualStudio.Strings.SolutionIsNotSaved),
+                        terminating: true,
+                        errorId: NuGetErrorId.UnsavedSolution,
+                        category: ErrorCategory.InvalidOperation);
+                }
+            });
         }
 
         /// <summary>
@@ -444,8 +447,8 @@ namespace NuGet.PackageManagement.PowerShellCmdlets
         {
             if (string.IsNullOrEmpty(projectName))
             {
-                Project = VsSolutionManager.DefaultNuGetProject;
-                if (VsSolutionManager.IsSolutionAvailable
+                Project = await VsSolutionManager.GetDefaultNuGetProjectAsync();
+                if (await VsSolutionManager.IsSolutionAvailableAsync()
                     && Project == null)
                 {
                     ErrorHandler.WriteProjectNotFoundError("Default", terminating: true);
@@ -454,7 +457,7 @@ namespace NuGet.PackageManagement.PowerShellCmdlets
             else
             {
                 Project = await VsSolutionManager.GetNuGetProjectAsync(projectName);
-                if (VsSolutionManager.IsSolutionAvailable
+                if (await VsSolutionManager.IsSolutionAvailableAsync()
                     && Project == null)
                 {
                     ErrorHandler.WriteProjectNotFoundError(projectName, terminating: true);
@@ -468,7 +471,7 @@ namespace NuGet.PackageManagement.PowerShellCmdlets
         /// <returns></returns>
         protected async Task<IVsProjectAdapter> GetDefaultProjectAsync()
         {
-            var defaultNuGetProject = VsSolutionManager.DefaultNuGetProject;
+            var defaultNuGetProject = await VsSolutionManager.GetDefaultNuGetProjectAsync();
             // Solution may be open without a project in it. Then defaultNuGetProject is null.
             if (defaultNuGetProject != null)
             {

@@ -51,7 +51,7 @@ namespace NuGet.PackageManagement
         /// For solutions with only BuildIntegratedProject(s), and a globalPackagesFolder which is
         /// not a relative path, it will return true, even if the solution file is not available.
         /// </summary>
-        bool IsSolutionAvailable { get; }
+        Task<bool> IsSolutionAvailableAsync();
 
         INuGetProjectContext NuGetProjectContext { get; set; }
 

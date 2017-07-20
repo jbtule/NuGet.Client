@@ -155,7 +155,7 @@ namespace NuGet.PackageManagement
         private async Task<Dictionary<PackageReference, List<string>>> GetPackagesReferencesDictionaryAsync(CancellationToken token)
         {
             var packageReferencesDict = new Dictionary<PackageReference, List<string>>(new PackageReferenceComparer());
-            if (!SolutionManager.IsSolutionAvailable)
+            if (!await SolutionManager.IsSolutionAvailableAsync())
             {
                 return packageReferencesDict;
             }

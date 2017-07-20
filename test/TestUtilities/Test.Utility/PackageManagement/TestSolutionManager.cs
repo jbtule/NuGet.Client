@@ -148,9 +148,9 @@ namespace Test.Utility
             get { return NuGetProjects.Count > 0; }
         }
 
-        public bool IsSolutionAvailable
+        public async Task<bool> IsSolutionAvailableAsync()
         {
-            get { return IsSolutionOpen; }
+            return await Task.FromResult(IsSolutionOpen);
         }
 
         public void EnsureSolutionIsLoaded()

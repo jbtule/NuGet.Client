@@ -393,7 +393,7 @@ namespace NuGetVSExtension
                 (uint)_VSRDTFLAGS.RDT_DontAddToMRU |
                 (uint)_VSRDTFLAGS.RDT_DontSaveAs;
 
-            if (!SolutionManager.IsSolutionAvailable)
+            if (!await SolutionManager.IsSolutionAvailableAsync())
             {
                 throw new InvalidOperationException(Resources.SolutionIsNotSaved);
             }
@@ -477,51 +477,55 @@ namespace NuGetVSExtension
 
         private void ShowManageLibraryPackageDialog(object sender, EventArgs e)
         {
-            NuGetUIThreadHelper.JoinableTaskFactory.Run(async delegate
-            {
-                await NuGetUIThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            NuGetUIThreadHelper.JoinableTaskFactory.RunAsyncAsVsTask(
+                   VsTaskRunContext.UIThreadBackgroundPriority,
+                   async (token) =>
+                   {
+                       ThreadHelper.ThrowIfNotOnUIThread();
 
-                string parameterString = null;
-                var args = e as OleMenuCmdEventArgs;
-                if (null != args)
-                {
-                    parameterString = args.InValue as string;
-                }
-                var searchText = GetSearchText(parameterString);
+                       string parameterString = null;
+                       var args = e as OleMenuCmdEventArgs;
+                       if (null != args)
+                       {
+                           parameterString = args.InValue as string;
+                       }
+                       var searchText = GetSearchText(parameterString);
 
-                // *** temp code
-                var project = EnvDTEProjectInfoUtility.GetActiveProject(VsMonitorSelection);
+                       // *** temp code
+                       var project = EnvDTEProjectInfoUtility.GetActiveProject(VsMonitorSelection);
 
-                if (project != null
-                    &&
-                    !EnvDTEProjectInfoUtility.IsUnloaded(project)
-                    &&
-                    EnvDTEProjectUtility.IsSupported(project))
-                {
-                    var windowFrame = FindExistingWindowFrame(project);
-                    if (windowFrame == null)
-                    {
-                        windowFrame = await CreateNewWindowFrameAsync(project);
-                    }
+                       if (project != null
+                           &&
+                           !EnvDTEProjectInfoUtility.IsUnloaded(project)
+                           &&
+                           EnvDTEProjectUtility.IsSupported(project))
+                       {
+                           var windowFrame = FindExistingWindowFrame(project);
+                           if (windowFrame == null)
+                           {
+                               windowFrame = await CreateNewWindowFrameAsync(project);
+                           }
 
-                    if (windowFrame != null)
-                    {
-                        Search(windowFrame, searchText);
-                        windowFrame.Show();
-                    }
-                }
-                else
-                {
-                    // show error message when no supported project is selected.
-                    var projectName = project != null ? project.Name : string.Empty;
+                           if (windowFrame != null)
+                           {
+                               Search(windowFrame, searchText);
+                               windowFrame.Show();
+                           }
+                       }
+                       else
+                       {
+                           // show error message when no supported project is selected.
+                           var projectName = project != null ? project.Name : string.Empty;
 
-                    var errorMessage = string.IsNullOrEmpty(projectName)
-                        ? Resources.NoProjectSelected
-                        : string.Format(CultureInfo.CurrentCulture, Resources.DTE_ProjectUnsupported, projectName);
+                           var errorMessage = string.IsNullOrEmpty(projectName)
+                               ? Resources.NoProjectSelected
+                               : string.Format(CultureInfo.CurrentCulture, Resources.DTE_ProjectUnsupported, projectName);
 
-                    MessageHelper.ShowWarningMessage(errorMessage, Resources.ErrorDialogBoxTitle);
-                }
-            });
+                           MessageHelper.ShowWarningMessage(errorMessage, Resources.ErrorDialogBoxTitle);
+                       }
+
+                       return VSConstants.S_OK;
+                   });
         }
 
         private async Task<IVsWindowFrame> FindExistingSolutionWindowFrameAsync()
@@ -581,7 +585,7 @@ namespace NuGetVSExtension
                 (uint)_VSRDTFLAGS.RDT_DontAddToMRU |
                 (uint)_VSRDTFLAGS.RDT_DontSaveAs;
 
-            if (!SolutionManager.IsSolutionAvailable)
+            if (!await SolutionManager.IsSolutionAvailableAsync())
             {
                 throw new InvalidOperationException(Resources.SolutionIsNotSaved);
             }
@@ -741,30 +745,32 @@ namespace NuGetVSExtension
                 // - if the solution exists and not debugging and not building AND
                 // - if the console is NOT busy executing a command, AND
                 // - if the active project is loaded and supported
-                command.Enabled = 
-                    IsSolutionExistsAndNotDebuggingAndNotBuilding() && 
-                    !ConsoleStatus.Value.IsBusy && 
+                command.Enabled =
+                    IsSolutionExistsAndNotDebuggingAndNotBuilding() &&
+                    !ConsoleStatus.Value.IsBusy &&
                     HasActiveLoadedSupportedProject;
             });
         }
 
         private void BeforeQueryStatusForAddPackageForSolutionDialog(object sender, EventArgs args)
         {
-            NuGetUIThreadHelper.JoinableTaskFactory.Run(async delegate
-            {
-                await NuGetUIThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            NuGetUIThreadHelper.JoinableTaskFactory.RunAsyncAsVsTask(
+                   VsTaskRunContext.UIThreadBackgroundPriority,
+                   async (token) =>
+                   {
+                       var command = (OleMenuCommand)sender;
 
-                var command = (OleMenuCommand)sender;
+                       // Enable the 'Manage NuGet Packages For Solution' dialog menu
+                       // - if the console is NOT busy executing a command, AND
+                       // - if the solution exists and not debugging and not building AND
+                       // - if there are NuGetProjects. This means there are loaded, supported projects.
+                       command.Enabled =
+                           IsSolutionExistsAndNotDebuggingAndNotBuilding() &&
+                           !ConsoleStatus.Value.IsBusy &&
+                           (await SolutionManager.GetNuGetProjectsAsync()).Any();
 
-                // Enable the 'Manage NuGet Packages For Solution' dialog menu
-                // - if the console is NOT busy executing a command, AND
-                // - if the solution exists and not debugging and not building AND
-                // - if there are NuGetProjects. This means there are loaded, supported projects.
-                command.Enabled =
-                    IsSolutionExistsAndNotDebuggingAndNotBuilding() &&
-                    !ConsoleStatus.Value.IsBusy &&
-                    (await SolutionManager.GetNuGetProjectsAsync()).Any();
-            });
+                       return VSConstants.S_OK;
+                   });
         }
 
         private bool IsSolutionExistsAndNotDebuggingAndNotBuilding()

@@ -59,23 +59,17 @@ namespace NuGet.PackageManagement.VisualStudio
 
         public INuGetProjectContext NuGetProjectContext { get; set; }
 
-        public NuGetProject DefaultNuGetProject
+        public async Task<NuGetProject> GetDefaultNuGetProjectAsync()
         {
-            get
+            await EnsureInitializeAsync();
+
+            if (string.IsNullOrEmpty(DefaultNuGetProjectName))
             {
-                return NuGetUIThreadHelper.JoinableTaskFactory.Run(async () =>
-                {
-                    await EnsureInitializeAsync();
-
-                    if (string.IsNullOrEmpty(DefaultNuGetProjectName))
-                    {
-                        return null;
-                    }
-
-                    _projectSystemCache.TryGetNuGetProject(DefaultNuGetProjectName, out var defaultNuGetProject);
-                    return defaultNuGetProject;
-                });
+                return null;
             }
+
+            _projectSystemCache.TryGetNuGetProject(DefaultNuGetProjectName, out var defaultNuGetProject);
+            return defaultNuGetProject;
         }
 
         public string DefaultNuGetProjectName { get; set; }
@@ -279,44 +273,38 @@ namespace NuGet.PackageManagement.VisualStudio
             }
         }
 
-        public bool IsSolutionAvailable
+        public async Task<bool> IsSolutionAvailableAsync()
         {
-            get
+            await NuGetUIThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+            if (!IsSolutionOpen)
             {
-                return NuGetUIThreadHelper.JoinableTaskFactory.Run(async delegate
-                {
-                    await NuGetUIThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-
-                    if (!IsSolutionOpen)
-                    {
-                        // Solution is not open. Return false.
-                        return false;
-                    }
-
-                    await EnsureInitializeAsync();
-
-                    if (!DoesSolutionRequireAnInitialSaveAs())
-                    {
-                        // Solution is open and 'Save As' is not required. Return true.
-                        return true;
-                    }
-
-                    var projects = _projectSystemCache.GetNuGetProjects();
-                    if (!projects.Any() || projects.Any(project => !(project is INuGetIntegratedProject)))
-                    {
-                        // Solution is open, but not saved. That is, 'Save as' is required.
-                        // And, there are no projects or there is a packages.config based project. Return false.
-                        return false;
-                    }
-
-                    // Solution is open and not saved. And, only contains project.json based projects.
-                    // Check if globalPackagesFolder is a full path. If so, solution is available.
-
-                    var globalPackagesFolder = SettingsUtility.GetGlobalPackagesFolder(_settings.Value);
-
-                    return Path.IsPathRooted(globalPackagesFolder);
-                });
+                // Solution is not open. Return false.
+                return false;
             }
+
+            await EnsureInitializeAsync();
+
+            if (!DoesSolutionRequireAnInitialSaveAs())
+            {
+                // Solution is open and 'Save As' is not required. Return true.
+                return true;
+            }
+
+            var projects = _projectSystemCache.GetNuGetProjects();
+            if (!projects.Any() || projects.Any(project => !(project is INuGetIntegratedProject)))
+            {
+                // Solution is open, but not saved. That is, 'Save as' is required.
+                // And, there are no projects or there is a packages.config based project. Return false.
+                return false;
+            }
+
+            // Solution is open and not saved. And, only contains project.json based projects.
+            // Check if globalPackagesFolder is a full path. If so, solution is available.
+
+            var globalPackagesFolder = SettingsUtility.GetGlobalPackagesFolder(_settings.Value);
+
+            return Path.IsPathRooted(globalPackagesFolder);
         }
 
         public void EnsureSolutionIsLoaded()

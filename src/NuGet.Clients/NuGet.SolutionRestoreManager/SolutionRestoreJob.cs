@@ -147,7 +147,7 @@ namespace NuGet.SolutionRestoreManager
             try
             {
                 var solutionDirectory = _solutionManager.SolutionDirectory;
-                var isSolutionAvailable = _solutionManager.IsSolutionAvailable;
+                var isSolutionAvailable = await _solutionManager.IsSolutionAvailableAsync();
 
                 if (solutionDirectory == null)
                 {
