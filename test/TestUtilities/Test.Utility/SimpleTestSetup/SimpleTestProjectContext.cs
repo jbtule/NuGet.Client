@@ -412,6 +412,9 @@ namespace NuGet.Test.Utility
 
                 foreach (var frameworkInfo in Frameworks)
                 {
+                    // Add properties with a TFM condition
+                    ProjectFileUtils.AddProperties(xml, Properties, $" '$(TargetFramework)' == '{frameworkInfo.Framework.GetShortFolderName()}' ");
+
                     foreach (var package in frameworkInfo.PackageReferences)
                     {
                         var referenceFramework = frameworkInfo.Framework;
