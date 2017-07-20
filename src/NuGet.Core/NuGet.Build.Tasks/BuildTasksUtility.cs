@@ -1,4 +1,4 @@
-﻿// Copyright (c) .NET Foundation. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Collections.Generic;
@@ -84,7 +84,7 @@ namespace NuGet.Build.Tasks
 
         public static void AddPropertyIfExists(IDictionary<string, string> properties, string key, string[] value)
         {
-            if (value!=null && !properties.ContainsKey(key))
+            if (value != null && !properties.ContainsKey(key))
             {
                 properties.Add(key, string.Concat(value.Select(e => e + ";")));
             }

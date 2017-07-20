@@ -4911,6 +4911,8 @@ namespace NuGet.CommandLine.Test
             using (var extraSourceA = TestDirectory.Create())
             using (var pathContext = new SimpleTestPathContext())
             {
+                pathContext.CleanUp = false;
+
                 // Set up solution, project, and packages
                 var solution = new SimpleTestSolutionContext(pathContext.SolutionRoot);
 
