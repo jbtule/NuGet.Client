@@ -1,4 +1,4 @@
-﻿// Copyright (c) .NET Foundation. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
@@ -6,6 +6,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using FluentAssertions;
+using Microsoft.Build.Framework;
+using Moq;
 using NuGet.Configuration;
 using NuGet.Configuration.Test;
 using NuGet.Test.Utility;
@@ -136,6 +138,200 @@ namespace NuGet.Build.Tasks.Test
                 Assert.True(SettingsUtility.GetConfigFilePaths(settings).Contains(innerConfigFile));
                 Assert.True(SettingsUtility.GetConfigFilePaths(settings).Contains(outerConfigFile));
             }
+        }
+
+        [Fact]
+        public void GetRestoreSettingsTask_VerifyRestoreAdditionalProjectSourcesAreAppended()
+        {
+            // Arrange
+            var buildEngine = new TestBuildEngine();
+            var testLogger = buildEngine.TestLogger;
+
+            var settingsPerFramework = new List<ITaskItem>();
+            var settings1 = new Mock<ITaskItem>();
+            settings1.SetupGet(e => e.ItemSpec).Returns("a");
+            settings1.Setup(e => e.GetMetadata("RestoreAdditionalProjectSources")).Returns("sourceC");
+            settingsPerFramework.Add(settings1.Object);
+
+            var task = new GetRestoreSettingsTask()
+            {
+                BuildEngine = buildEngine,
+                ProjectUniqueName = "a.csproj",
+                RestoreSources = new[] { "sourceA", "sourceB" },
+                RestoreSettingsPerFramework = settingsPerFramework.ToArray()
+            };
+
+            // Act
+            var result = task.Execute();
+
+            // Assert
+            result.Should().BeTrue();
+            task.OutputSources.ShouldBeEquivalentTo(new[] { "sourceA", "sourceB", "sourceC" });
+        }
+
+        [Fact]
+        public void GetRestoreSettingsTask_VerifyRestoreAdditionalProjectFallbackFoldersAreAppended()
+        {
+            // Arrange
+            var buildEngine = new TestBuildEngine();
+            var testLogger = buildEngine.TestLogger;
+
+            var settingsPerFramework = new List<ITaskItem>();
+            var settings1 = new Mock<ITaskItem>();
+            settings1.SetupGet(e => e.ItemSpec).Returns("a");
+            settings1.Setup(e => e.GetMetadata("RestoreAdditionalProjectFallbackFolders")).Returns("sourceC");
+            settingsPerFramework.Add(settings1.Object);
+
+            var task = new GetRestoreSettingsTask()
+            {
+                BuildEngine = buildEngine,
+                ProjectUniqueName = "a.csproj",
+                RestoreFallbackFolders = new[] { "sourceA", "sourceB" },
+                RestoreSettingsPerFramework = settingsPerFramework.ToArray()
+            };
+
+            // Act
+            var result = task.Execute();
+
+            // Assert
+            result.Should().BeTrue();
+            task.OutputFallbackFolders.ShouldBeEquivalentTo(new[] { "sourceA", "sourceB", "sourceC" });
+        }
+
+        [Fact]
+        public void GetRestoreSettingsTask_VerifyRestoreAdditionalProjectFallbackFoldersWithExcludeAreNotAdded()
+        {
+            // Arrange
+            var buildEngine = new TestBuildEngine();
+            var testLogger = buildEngine.TestLogger;
+
+            var settingsPerFramework = new List<ITaskItem>();
+            var settings1 = new Mock<ITaskItem>();
+            settings1.SetupGet(e => e.ItemSpec).Returns("a");
+            settings1.Setup(e => e.GetMetadata("RestoreAdditionalProjectFallbackFolders")).Returns("sourceC");
+            settingsPerFramework.Add(settings1.Object);
+
+            var settings2 = new Mock<ITaskItem>();
+            settings2.SetupGet(e => e.ItemSpec).Returns("b");
+            settings2.Setup(e => e.GetMetadata("RestoreAdditionalProjectFallbackFoldersExcludes")).Returns("sourceC");
+            settingsPerFramework.Add(settings2.Object);
+
+            var task = new GetRestoreSettingsTask()
+            {
+                BuildEngine = buildEngine,
+                ProjectUniqueName = "a.csproj",
+                RestoreFallbackFolders = new[] { "sourceA", "sourceB" },
+                RestoreSettingsPerFramework = settingsPerFramework.ToArray()
+            };
+
+            // Act
+            var result = task.Execute();
+
+            // Assert
+            result.Should().BeTrue();
+            task.OutputFallbackFolders.ShouldBeEquivalentTo(new[] { "sourceA", "sourceB" });
+        }
+
+        [Fact]
+        public void GetRestoreSettingsTask_VerifyAggregationAcrossFrameworks()
+        {
+            // Arrange
+            var buildEngine = new TestBuildEngine();
+            var testLogger = buildEngine.TestLogger;
+
+            var settingsPerFramework = new List<ITaskItem>();
+            var settings1 = new Mock<ITaskItem>();
+            settings1.SetupGet(e => e.ItemSpec).Returns("a");
+            settings1.Setup(e => e.GetMetadata("RestoreAdditionalProjectSources")).Returns("a;b");
+            settings1.Setup(e => e.GetMetadata("RestoreAdditionalProjectFallbackFolders")).Returns("m;n");
+            settingsPerFramework.Add(settings1.Object);
+
+            var settings2 = new Mock<ITaskItem>();
+            settings2.SetupGet(e => e.ItemSpec).Returns("b");
+            settings2.Setup(e => e.GetMetadata("RestoreAdditionalProjectSources")).Returns("c");
+            settings2.Setup(e => e.GetMetadata("RestoreAdditionalProjectFallbackFolders")).Returns("s");
+            settingsPerFramework.Add(settings2.Object);
+
+            var settings3 = new Mock<ITaskItem>();
+            settings3.SetupGet(e => e.ItemSpec).Returns("c");
+            settings3.Setup(e => e.GetMetadata("RestoreAdditionalProjectSources")).Returns("d");
+            settingsPerFramework.Add(settings3.Object);
+
+            var settings4 = new Mock<ITaskItem>();
+            settings4.SetupGet(e => e.ItemSpec).Returns("d");
+            settings4.Setup(e => e.GetMetadata("RestoreAdditionalProjectFallbackFolders")).Returns("t");
+            settingsPerFramework.Add(settings4.Object);
+
+            var settings5 = new Mock<ITaskItem>();
+            settings5.SetupGet(e => e.ItemSpec).Returns("e");
+            settingsPerFramework.Add(settings5.Object);
+
+            var task = new GetRestoreSettingsTask()
+            {
+                BuildEngine = buildEngine,
+                ProjectUniqueName = "a.csproj",
+                RestoreSources = new[] { "base" },
+                RestoreFallbackFolders = new[] { "base" },
+                RestoreSettingsPerFramework = settingsPerFramework.ToArray()
+            };
+
+            // Act
+            var result = task.Execute();
+
+            // Assert
+            result.Should().BeTrue();
+            task.OutputSources.ShouldBeEquivalentTo(new[] { "base", "a", "b", "c", "d" });
+            task.OutputFallbackFolders.ShouldBeEquivalentTo(new[] { "base", "m", "n", "s", "t" });
+        }
+
+        [Fact]
+        public void GetRestoreSettingsTask_VerifyNullPerFrameworkSettings()
+        {
+            // Arrange
+            var buildEngine = new TestBuildEngine();
+            var testLogger = buildEngine.TestLogger;
+
+            var task = new GetRestoreSettingsTask()
+            {
+                BuildEngine = buildEngine,
+                ProjectUniqueName = "a.csproj",
+                RestoreSources = new[] { "base" },
+                RestoreFallbackFolders = new[] { "base" },
+                RestoreSettingsPerFramework = null
+            };
+
+            // Act
+            var result = task.Execute();
+
+            // Assert
+            result.Should().BeTrue();
+            task.OutputSources.ShouldBeEquivalentTo(new[] { "base" });
+            task.OutputFallbackFolders.ShouldBeEquivalentTo(new[] { "base" });
+        }
+
+        [Fact]
+        public void GetRestoreSettingsTask_VerifyEmptyPerFrameworkSettings()
+        {
+            // Arrange
+            var buildEngine = new TestBuildEngine();
+            var testLogger = buildEngine.TestLogger;
+
+            var task = new GetRestoreSettingsTask()
+            {
+                BuildEngine = buildEngine,
+                ProjectUniqueName = "a.csproj",
+                RestoreSources = new[] { "base" },
+                RestoreFallbackFolders = new[] { "base" },
+                RestoreSettingsPerFramework = new ITaskItem[0]
+            };
+
+            // Act
+            var result = task.Execute();
+
+            // Assert
+            result.Should().BeTrue();
+            task.OutputSources.ShouldBeEquivalentTo(new[] { "base" });
+            task.OutputFallbackFolders.ShouldBeEquivalentTo(new[] { "base" });
         }
 
         private static string machineWideSettingsConfig = @"<?xml version=""1.0"" encoding=""utf-8""?>
